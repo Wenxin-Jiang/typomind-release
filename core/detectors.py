@@ -10,8 +10,8 @@ READY TO TEST:
     - homophonic similarity (13)  # NOTE: many cases of false positive may be ambiguous labeling errors
     - asemantic substitution (9)
     - scope confusion (11)
-    - semantic substitution (8) # NOTE: depends on segmentation, needs to be tested after update   
-    - homographic replacement (2) 
+    - semantic substitution (8) # NOTE: depends on segmentation, needs to be tested after update
+    - homographic replacement (2)
 
 OMITTED:
     - familiar term abuse (12)
@@ -71,18 +71,22 @@ def is_unscoped(base_pkg: str, adversarial_pkg: str):
         return False
 
 
-def classify_typosquat(base_pkg: str, adversarial_pkg: str) -> Dict[str, int]:
-    if not base_pkg or not adversarial_pkg or len(base_pkg) == 0  or len(adversarial_pkg) == 0: return {}
-    if len(base_pkg) > 35 or len(adversarial_pkg) > 35: return{}
+def classify_typosquat(base_pkg: str, adversarial_pkg: str) -> Dict[str, str]:
+    if not base_pkg or not adversarial_pkg or len(base_pkg) == 0 or len(adversarial_pkg) == 0:
+        return {}
+    if len(base_pkg) > 100 or len(adversarial_pkg) > 100:
+        return {}
+
     if is_unscoped(base_pkg, adversarial_pkg):
-        detector_count = {(d.key, d.name): d(base_pkg, adversarial_pkg) for d in DetectorBase.enabled_inst_registry}
+        detector_results = {d.name: d(base_pkg, adversarial_pkg) for d in DetectorBase.enabled_inst_registry}
     else:
-        detector_count = {(d.key, d.name): d(base_pkg, adversarial_pkg) for d in DetectorBase.scoped_inst_registry}
-    return {_: c for _, c in detector_count.items() if c}
+        detector_results = {d.name: d(base_pkg, adversarial_pkg) for d in DetectorBase.scoped_inst_registry}
+
+    return {adversarial_pkg: name for name, result in detector_results.items() if result}
 
 class AsemanticSubstitution(DetectorBase):
     key, name = (9, 'asemantic substitution')
-    
+
     @normalizers.normalize_one_step_LD_dist
     @normalizers.normalize_delimiters
     def __call__(self, base_pkg: str, adversarial_pkg: str, *normalized_detectors) -> int:
@@ -95,7 +99,7 @@ class AsemanticSubstitution(DetectorBase):
 
 class HomographicReplacement(DetectorBase):
     key, name = (2, 'homographic replacement')
-    
+
     @normalizers.normalize_delimiters
     def __call__(self, base_pkg: str, adversarial_pkg: str) -> int:
         normalized_base = base_pkg.replace('_', '')
@@ -113,8 +117,8 @@ class OneStepLDDist(DetectorBase):
                     min_dist: int = 4, min_two_step_dist: int = 5) -> int:
         if len(base_pkg) < min_dist or len(adversarial_pkg) < min_dist: return 0
         if ''.join(base_pkg.split('-')) == ''.join(adversarial_pkg.split('-')): return 0
-        for p in permutations(adversarial_pkg.split('_')): 
-            
+        for p in permutations(adversarial_pkg.split('_')):
+
             dist = utils.DL_dist(base_pkg, '_'.join(p))
             if (len(base_pkg) < min_two_step_dist or len(adversarial_pkg) < min_two_step_dist) and dist == 2:
                 return 0
@@ -138,7 +142,7 @@ class ScopeConfusion(DetectorBase):
         if  "/" in base_pkg or "/" in adversarial_pkg:
             normalized_base = base_pkg.split("/")
             normalized_adversarial = adversarial_pkg.split("/")
-            
+
             # Case 1
             new_base = [string for string in normalized_base if not string.startswith("@")]
             new_ad = [string for string in normalized_adversarial if not string.startswith("@")]
@@ -154,7 +158,7 @@ class ScopeConfusion(DetectorBase):
                 # Then check for typosquatting in the scopes
 
                 if len(adversarial_scope) == 0 and len(base_scope) != 0:
-                    is_scope_confusion = True 
+                    is_scope_confusion = True
 
                 classifications = classify_typosquat(base_scope, adversarial_scope)
                 if classifications:
@@ -164,7 +168,7 @@ class ScopeConfusion(DetectorBase):
             normalized_base = base_pkg.replace("@", "").replace("/", "_").split("_")
             normalized_adversarial = adversarial_pkg.replace("@","").replace("/", "_").split("_")
 
-            # Case 3: 
+            # Case 3:
             # The package names are the same, then check if the scopes match other detectors.
             if "".join(normalized_base) == "".join(normalized_adversarial):
                 is_scope_confusion = True
@@ -228,8 +232,8 @@ class PrefixSuffixAugmentation(DetectorBase):
         return 0
 
 class Simplification(DetectorBase):
-    key, name = (6, 'simplification')   
-    
+    key, name = (6, 'simplification')
+
     @normalizers.normalize_scope
     @normalizers.normalize_one_step_LD_dist
     @normalizers.normalize_delimiters
@@ -242,7 +246,7 @@ class Simplification(DetectorBase):
         base_len = len(normalized_base)
         adv_len = len(normalized_adversarial)
         is_corner = normalized_base[:adv_len] == normalized_adversarial or normalized_base[base_len - adv_len:] == normalized_adversarial
-        
+
         if is_corner and adversarial_pkg in base_pkg and (len(normalized_base) > len(normalized_adversarial)) and  (len(normalized_base) <= (len(normalized_adversarial)*2 + len(normalized_adversarial)/2)):
             return 1
         else:
@@ -286,7 +290,7 @@ class GrammaticalSubstitution(DetectorBase):
 
 class SemanticSubstitution(DetectorBase):
     key, name = (8, "semantic substitution")
-    
+
     # @normalizers.normalize_sequence_order
     @normalizers.normalize_one_step_LD_dist
     @normalizers.normalize_delimiters
@@ -321,7 +325,7 @@ class HomophonicSimilarity(DetectorBase):
                     p_adv_token[i], p_adv_token[i + 1] = p_adv_token[i + 1], p_adv_token[i]
 
             caught = HomophonicSimilarity.is_similiar(base_token, ''.join(p_adv_token))
-            
+
             if caught:
                 base_segments_test = base_pkg.split('_')
                 adversarial_segments_test = adversarial_pkg.split('_')
@@ -351,5 +355,5 @@ class AlternateSpelling(DetectorBase):
                 base_segments_test.remove(base_token)
                 adversarial_segments_test.remove(adv_token)
                 return count if (base_segments_test == adversarial_segments_test) else 0
-        
+
         return count

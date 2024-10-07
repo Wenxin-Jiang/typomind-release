@@ -6,7 +6,7 @@ from core import utils
 from core import tokens
 import pry
 
-WORD_VECTOR = KeyedVectors.load('core/models/fasttext-vectors.kv')
+WORD_VECTOR = KeyedVectors.load('submodules/typosquat-lfs/fasttext-vectors.kv')
 
 def get_similarity(first_word, second_word):
 	try:
@@ -19,20 +19,20 @@ def is_semantically_similar(base_token, adverserial_token):
     bt, at = [b for b in base_token if b not in adverserial_token], [a for a in adverserial_token if a not in base_token]
 
     permutations = [(x,y) for x in bt for y in at]
-    
+
     if len(permutations) == 0:
         return False
 
     total_similarity = 0
     for combination in permutations:
         total_similarity += get_similarity(combination[0], combination[1])
-    
+
     similarity_ratio = total_similarity / len(permutations)
 
     # print(f"{str(base_token)} and {str(adverserial_token)} have similarity ratio of {similarity_ratio}")
     if similarity_ratio < 0.65:
         return False
-    
+
     return True
 
 def check_asemantic(base_token, adversarial_token, popularity_threshold: float = 0.02502):  # recall first drops below 0.02502, threshold seems to be very sensitive
@@ -59,10 +59,9 @@ def check_asemantic(base_token, adversarial_token, popularity_threshold: float =
                     if not semantically_similar:
                         # lets check, perhaps the rest of the tokens are just super common and popular?
                         if all((tokens.PKG_TOKEN_TO_RANK[seq] if seq in tokens.PKG_TOKEN_TO_RANK else 0) < popularity_threshold for seq in sbt):
-                            is_asemantic = True 
-    
+                            is_asemantic = True
+
     return is_asemantic
-	
 
 
 
@@ -73,4 +72,5 @@ def check_asemantic(base_token, adversarial_token, popularity_threshold: float =
 
 
 
-	
+
+
