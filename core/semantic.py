@@ -1,12 +1,13 @@
 
 
+import os
 from gensim.models import  KeyedVectors
 
 from core import utils
 from core import tokens
 import pry
 
-WORD_VECTOR = KeyedVectors.load('submodules/typosquat-lfs/fasttext-vectors.kv')
+WORD_VECTOR = KeyedVectors.load(f"{os.getenv('TYPOSQUAT_MODELS_BASE_PATH')}/fasttext-vectors.kv")
 
 def get_similarity(first_word, second_word):
 	try:
