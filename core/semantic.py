@@ -7,7 +7,10 @@ from core import utils
 from core import tokens
 import pry
 
-WORD_VECTOR = KeyedVectors.load(f"{os.getenv('TYPOSQUAT_MODELS_BASE_PATH')}/fasttext-vectors.kv")
+if os.getenv('DEPSCAN_ENV') == 'dev':
+    WORD_VECTOR = KeyedVectors.load("typosquat-data/typosquat-lfs/fasttext-vectors.kv")
+else:
+    WORD_VECTOR = KeyedVectors.load(f"{os.getenv('TYPOSQUAT_MODELS_BASE_PATH')}/fasttext-vectors.kv")
 
 def get_similarity(first_word, second_word):
 	try:
